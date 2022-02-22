@@ -1,8 +1,8 @@
 -- Variables
 
 local QBCore = exports['qb-core']:GetCoreObject()
-blips = {}
-blipsLoaded = false
+local blips = {}
+local blipsLoaded = false
 local isOpen = false
 
 -- Functions
@@ -24,15 +24,30 @@ end
 
 local function CreateBlips()
     for k, location in pairs(Config.LicencePlateLocations) do
-        blips[k] = AddBlipForCoord(tonumber(location.coords.x), tonumber(location.coords.y), tonumber(location.coords.z))
-        SetBlipSprite(blips[k], Config.Blip.blipType)
-        SetBlipDisplay(blips[k], 4)
-        SetBlipScale  (blips[k], Config.Blip.blipScale)
-        SetBlipColour (blips[k], Config.Blip.blipColor)
-        SetBlipAsShortRange(blips[k], true)
-        BeginTextCommandSetBlipName("STRING")
-        AddTextComponentString(tostring(Config.Blip.blipName))
-        EndTextCommandSetBlipName(blips[k])
+        if location.showOnMap then
+            blips[k] = AddBlipForCoord(tonumber(location.coords.x), tonumber(location.coords.y), tonumber(location.coords.z))
+            SetBlipSprite(blips[k], Config.Blip.blipType)
+            SetBlipDisplay(blips[k], 4)
+            SetBlipScale  (blips[k], Config.Blip.blipScale)
+            SetBlipColour (blips[k], Config.Blip.blipColor)
+            SetBlipAsShortRange(blips[k], true)
+            BeginTextCommandSetBlipName("STRING")
+            AddTextComponentString(tostring(location.blipName))
+            EndTextCommandSetBlipName(blips[k])
+        end
+
+    end
+end
+
+local function IsBehindVehicle(vehicle) 
+    local ped = PlayerPedId()
+    local pos = GetEntityCoords(ped)
+    local trunkpos = GetOffsetFromEntityInWorldCoords(vehicle, 0, -2.5, 0)
+
+    if #(pos - trunkpos) < 2.0 and not IsPedInAnyVehicle(ped) then
+        return true
+    else
+        return false
     end
 end
 
@@ -44,6 +59,48 @@ local function RemoveBlips()
 end
 
 -- Events
+
+RegisterNetEvent('clp:getPlateNui', function()
+    local vehicle = QBCore.Functions.GetClosestVehicle()
+    local plate = GetVehicleNumberPlateText(vehicle):match( "^%s*(.-)%s*$" )
+    QBCore.Functions.TriggerCallback('clp:server::checkVehicleOwner', function(owned)
+        if owned then       
+            if not IsBehindVehicle(vehicle) then
+                QBCore.Functions.Notify(Config.Locales.NotBehindVehicle)
+                return
+            end 
+
+            if not isOpen then
+                local ped = PlayerPedId()
+                isOpen = true
+                SendNUIMessage({action = 'show'})
+                SetNuiFocus(1, 1)
+            end
+        else
+            QBCore.Functions.Notify(Config.Locales.ErrorOwner)
+        end
+    end, plate)
+end)
+
+
+RegisterNetEvent('clp:client:LicensePlateCheck', function()
+    local ped = PlayerPedId()
+    local closestVehicle = GetClosestVehicle(GetEntityCoords(ped), 5.0, 0, 70)
+    if closestVehicle ~= 0 then
+        local plate = GetVehicleNumberPlateText(closestVehicle):match( "^%s*(.-)%s*$" )
+        QBCore.Functions.TriggerCallback('clp:server:GetPlateStatus', function(isFake)
+            if isFake then
+                QBCore.Functions.Notify('Vehicle license plate is fake', 'error')
+            else
+                QBCore.Functions.Notify('Vehicle license plate is registered', 'success')
+            end
+        end, plate)
+    else
+        QBCore.Functions.Notify('No Vehicle Nearby', 'error')
+    end
+end)
+
+
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     CreateBlips()
@@ -58,25 +115,22 @@ end)
 RegisterNUICallback('getPlateText', function(data, cb)
     if isOpen then
         local ped = PlayerPedId()
-        if IsPedInAnyVehicle(ped, false) then
-            if GetPedInVehicleSeat(GetVehiclePedIsIn(ped, false), -1) == ped then
-                if data then
-                    if data:len() > 0 then
-                        SendNUIMessage({action = 'hide'})
-                        SetNuiFocus(0, 0)
-                        TriggerServerEvent('ev:getPlate', data, GetVehicleNumberPlateText(GetVehiclePedIsIn(ped, false)):match( "^%s*(.-)%s*$" ))
-                        isOpen = false
-                    else
-                        QBCore.Functions.Notify(Config.Locales.ErrorCharsMin)
-                    end
-                else
-                    QBCore.Functions.Notify(Config.Locales.Error)
-                end
+        if data then
+            if data:len() > 0 then
+                SendNUIMessage({action = 'hide'})
+                SetNuiFocus(0, 0)
+                local vehicle = QBCore.Functions.GetClosestVehicle()
+                local plate = GetVehicleNumberPlateText(vehicle):match( "^%s*(.-)%s*$" )
+                TriggerServerEvent('clp:server:getPlate', data, plate)
+                isOpen = false
+                TaskPlayAnim(ped, "amb@prop_human_bum_bin@idle_b", "idle_d", 8.0, 8.0, -1, 50, 0, false, false, false)
+                Wait(4000)
+                TaskPlayAnim(ped, "amb@prop_human_bum_bin@idle_b", "exit", 8.0, 8.0, -1, 50, 0, false, false, false)
             else
-                QBCore.Functions.Notify(Config.Locales.ErrorDriver) 
+                QBCore.Functions.Notify(Config.Locales.ErrorCharsMin)
             end
         else
-            QBCore.Functions.Notify(Config.Locales.ErrorVehicle)
+            QBCore.Functions.Notify(Config.Locales.Error)
         end
     end
     cb({})
@@ -89,25 +143,6 @@ RegisterNUICallback('close', function(_, cb)
         SetNuiFocus(0, 0)
     end
     cb({})
-end)
-
-
--- Events
-RegisterNetEvent('ev:getPlateNui', function()
-    if not isOpen then
-        local ped = PlayerPedId()
-        if IsPedInAnyVehicle(ped, false) then
-            if GetPedInVehicleSeat(GetVehiclePedIsIn(ped, false), -1) == ped then
-                isOpen = true
-                SendNUIMessage({action = 'show'})
-                SetNuiFocus(1, 1)
-            else
-                showNoti(Config.Locales.ErrorDriver)
-            end
-        else
-            showNoti(Config.Locales.ErrorWalking)
-        end
-    end
 end)
 
 --Handlers
@@ -153,16 +188,17 @@ CreateThread(function()
                 inRange = true
                 DrawMarker(2, location.coords.x, location.coords.y, location.coords.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.2, 0.2, 155, 152, 234, 155, false, false, false, true, false, false, false)
                 if #(pos - vector3(location.coords.x, location.coords.y, location.coords.z)) < 1.5 then
-                    DrawText3Ds(location.coords, '~g~E~w~ - Buy licence plate $' .. Config.LicencePlatePrice)
+
+                    DrawText3Ds(location.coords, '~g~E~w~ - ' .. location.label  .. ' $' .. location.price)
                     if IsControlJustPressed(0, 38) then
-                        TriggerServerEvent('ev:buyItem')
+                        TriggerServerEvent(location.eventToTrigger, location)
                     end
                 end
             end
         end
 
         if not inRange then
-            Wait(1000)
+            Wait(1500)
         end
 
         Wait(4)
