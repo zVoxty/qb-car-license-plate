@@ -92,9 +92,6 @@ RegisterNetEvent('clp:server:getPlate', function(plate, currentPlate)
  
                 if currentVehicle[1] then
                     local vehicleC = json.decode(currentVehicle[1].mods)
-                    if not vehicleC.plate then
-                        return TriggerClientEvent('QBCore:Notify', source, Config.Locales.ErrorPlateReal)
-                    end
                     vehicleC.plate = plate
 
                     MySQL.Async.execute('UPDATE player_vehicles SET plate = ?, mods = ?, fakeplate = ? WHERE plate = ?',{plate, json.encode(vehicleC), usedLicensePlateType == 'fake_license_plate', currentPlate})
