@@ -1,4 +1,4 @@
-# qb-car-licence-plate
+# qb-car-license-plate
 Plugin written on the QB framework to handle car licence plates within FiveM game
 
 # Dependencies
