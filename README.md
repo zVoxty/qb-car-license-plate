@@ -6,7 +6,7 @@ Plugin written on the QB framework to handle car licence plates within FiveM gam
 - QB-Inventory
 
 # Workflows
-1. You can customise from where to buy the empty license plates using the config file.
+1. You can customise where to buy the empty license plates using the config file.
 2. The empty license plates can be converted to 'registered license plates' for a higher amount of money 
 3. The empty license plates can be converted to 'fake license plates' for a lower amount of money
 4. If you have within your inventory fake or registered license plates you can go behind your car and change the plates.
