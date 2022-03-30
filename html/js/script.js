@@ -47,7 +47,7 @@ const fetchNUI = async (cbname, data) => {
         },
         body: JSON.stringify(data)
     };
-    const resp = await fetch(`https://qb-car-licence-plate/${cbname}`, options);
+    const resp = await fetch(`https://qb-car-license-plate/${cbname}`, options);
     return await resp.json();
 }
 

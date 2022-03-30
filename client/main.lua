@@ -100,7 +100,9 @@ RegisterNetEvent('clp:client:LicensePlateCheck', function()
     end
 end)
 
-
+RegisterNetEvent('clp:client:ResetVehicleOwner', function(plate)
+    TriggerServerEvent('vehiclekeys:server:SetVehicleOwner', plate)
+end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     CreateBlips()
